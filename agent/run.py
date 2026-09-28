@@ -48,8 +48,9 @@ def ollama(name):
     return ChatOllama(model=name, temperature=0, num_ctx=32768, num_predict=2048)
 
 
-async def ask(question, model, thread="default", db="runs.sqlite", verbose=True):
-    client = MultiServerMCPClient(SERVERS)
+async def ask(question, model, thread="default", db="runs.sqlite", verbose=True, servers=SERVERS):
+    """Run one question. Returns every message in the thread; the last one is the answer."""
+    client = MultiServerMCPClient(servers)
     async with client.session("tools") as session, AsyncSqliteSaver.from_conn_string(db) as saver:
         agent = build_agent(model, await load_mcp_tools(session), saver)
         config = {"configurable": {"thread_id": thread}, "recursion_limit": 20}
@@ -60,7 +61,7 @@ async def ask(question, model, thread="default", db="runs.sqlite", verbose=True)
                         for c in m.tool_calls:
                             print(f"-> {c['name']}({json.dumps(c['args'])})", file=sys.stderr)
         state = await agent.aget_state(config)
-        return state.values["messages"][-1].text
+        return state.values["messages"]
 
 
 def main():
@@ -69,7 +70,7 @@ def main():
     p.add_argument("--model", default="gpt-oss:20b")
     p.add_argument("--thread", default="default", help="reuse a thread id to continue a conversation")
     a = p.parse_args()
-    print(asyncio.run(ask(a.question, ollama(a.model), a.thread)))
+    print(asyncio.run(ask(a.question, ollama(a.model), a.thread))[-1].text)
 
 
 if __name__ == "__main__":

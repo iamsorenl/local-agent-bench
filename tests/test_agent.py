@@ -27,7 +27,7 @@ def calc(expr, id):
 
 
 def run_scripted(replies, tmp_path):
-    return asyncio.run(run.ask("q", Scripted(replies=replies), db=str(tmp_path / "t.sqlite"), verbose=False))
+    return asyncio.run(run.ask("q", Scripted(replies=replies), db=str(tmp_path / "t.sqlite"), verbose=False))[-1].text
 
 
 def tool_results(tmp_path):

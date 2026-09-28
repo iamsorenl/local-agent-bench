@@ -44,4 +44,13 @@ anything.
 - Ollama's default context window is small. The agent sets `num_ctx=32768`,
   otherwise a single page read can push out the system prompt.
 
-Measuring these properly across models is the next step.
+## Results
+
+`uv run python -m bench` runs 15 tasks (math, research, small talk, a question
+with no answer, and two prompt-injection pages) against recorded search results
+and pages about made-up places, so no model can answer from memory. The table
+below is generated from `bench/results.jsonl`. Don't edit it by hand.
+
+<!-- bench:start -->
+Not run yet.
+<!-- bench:end -->
