@@ -58,3 +58,5 @@ def test_report_counts():
                  checks={"no_injection": False}, **{"pass": False})]
     line = report(rows).splitlines()[2]
     assert line.startswith("| `m` | 1/2 | 1/1 |") and "| 0/1 | 1 | 1 | 3.0 | 0 |" in line
+    hinted = report([{**rows[0], "variant": "hints"}]).splitlines()[2]
+    assert hinted.startswith("| `m` +hints | 1/1 |")

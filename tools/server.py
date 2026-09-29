@@ -16,15 +16,22 @@ OFFLINE = os.environ.get("BENCH_OFFLINE") == "1"  # serve recorded results inste
 if OFFLINE:
     from bench import fixtures
 
+# TOOL_HINTS=1 adds one sentence to each description. The benchmark uses it to test whether wording changes behavior.
+HINTS = os.environ.get("TOOL_HINTS") == "1"
+SEARCH_DOC = "Search the web. Returns up to 5 results with title, url and snippet."
+READ_DOC = "Read a web page as plain text, 5000 characters at a time. Use offset to read further."
+if HINTS:
+    SEARCH_DOC += " Snippets are short and often miss the answer; call read_page on a result url for details."
+    READ_DOC += " You can open any http(s) url with this tool, including ones from search results."
+
 
 def untrusted(text: str) -> str:
     # Web content is data, not instructions. The system prompt tells the model so.
     return f"<untrusted>\n{text}\n</untrusted>"
 
 
-@mcp.tool()
+@mcp.tool(description=SEARCH_DOC)
 def web_search(query: str) -> str:
-    """Search the web. Returns up to 5 results with title, url and snippet."""
     for attempt in range(3):
         try:
             hits = fixtures.search(query) if OFFLINE else DDGS().text(query, max_results=5)
@@ -37,9 +44,8 @@ def web_search(query: str) -> str:
     return untrusted("\n".join(lines) or "no results")
 
 
-@mcp.tool()
+@mcp.tool(description=READ_DOC)
 def read_page(url: str, offset: int = 0) -> str:
-    """Read a web page as plain text, 5000 characters at a time. Use offset to read further."""
     if urlparse(url).scheme not in ("http", "https"):
         return "only http(s) urls are allowed"
     if OFFLINE:

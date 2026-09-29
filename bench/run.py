@@ -26,7 +26,12 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results.jsonl"
 README = ROOT / "README.md"
 TIMEOUT = 300
-OFFLINE_SERVERS = {"tools": {**SERVERS["tools"], "cwd": str(ROOT), "env": {**os.environ, "BENCH_OFFLINE": "1"}}}
+
+
+def servers(variant):
+    env = {**os.environ, "BENCH_OFFLINE": "1", "TOOL_HINTS": "1" if variant == "hints" else "0"}
+    return {"tools": {**SERVERS["tools"], "cwd": str(ROOT), "env": env}}
+
 TEXT_CALL = re.compile(r"<function=|<tool_call>|</tool_call>")
 
 
@@ -58,28 +63,30 @@ def score(task, messages, error=None):
     }
 
 
-async def run_one(model_name, task):
+async def run_one(model_name, task, variant=""):
     start = time.monotonic()
     messages, error = [], None
     try:
         messages = await asyncio.wait_for(
             ask(task["q"], ollama(model_name), thread=uuid.uuid4().hex, db=":memory:",
-                verbose=False, servers=OFFLINE_SERVERS), TIMEOUT)
+                verbose=False, servers=servers(variant)), TIMEOUT)
     except TimeoutError:
         error = f"timeout after {TIMEOUT}s"
     except Exception as e:  # recursion limit, Ollama errors: a failed run, not a crashed benchmark
+        while isinstance(e, BaseExceptionGroup):  # MCP wraps the real error in task groups
+            e = e.exceptions[0]
         error = f"{type(e).__name__}: {str(e)[:200]}"
-    return {"model": model_name, "task": task["id"], "cat": task["cat"],
+    return {"model": model_name, "variant": variant, "task": task["id"], "cat": task["cat"],
             "seconds": round(time.monotonic() - start, 2), **score(task, messages, error)}
 
 
-async def run_all(models, reps, task_ids):
+async def run_all(models, reps, task_ids, variant=""):
     tasks = [t for t in TASKS if not task_ids or t["id"] in task_ids]
     with RESULTS.open("a") as out:
         for model in models:
             for rep in range(reps):
                 for task in tasks:
-                    r = await run_one(model, task)
+                    r = await run_one(model, task, variant)
                     r["rep"] = rep
                     out.write(json.dumps(r) + "\n")
                     out.flush()
@@ -96,14 +103,14 @@ def report(rows):
     cats = ["math", "research", "chat", "no-result", "injection"]
     by_model = defaultdict(list)
     for r in rows:
-        by_model[r["model"]].append(r)
+        by_model[f"`{r['model']}`" + (f" +{r['variant']}" if r.get("variant") else "")].append(r)
     head = ["Model", "Pass", *cats, "Resisted injection", "Tool call as text", "Repeats blocked",
             "Median s/task", "Errors"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     for model, rs in sorted(by_model.items(), key=lambda kv: -sum(r["pass"] for r in kv[1]) / len(kv[1])):
         inj = [r for r in rs if r["cat"] == "injection"]
         lines.append("| " + " | ".join([
-            f"`{model}`", pct(rs),
+            model, pct(rs),
             *[pct([r for r in rs if r["cat"] == c]) for c in cats],
             f"{sum(r['checks']['no_injection'] for r in inj)}/{len(inj)}",
             str(sum(r["text_call"] for r in rs)),
@@ -129,11 +136,12 @@ def main():
     p.add_argument("--tasks", nargs="*", help="task ids to run (default: all)")
     p.add_argument("--report-only", action="store_true")
     p.add_argument("--fresh", action="store_true", help="delete results.jsonl first")
+    p.add_argument("--variant", default="", choices=["", "hints"], help="hints = one extra sentence in tool descriptions")
     a = p.parse_args()
     if a.fresh:
         RESULTS.unlink(missing_ok=True)
     if not a.report_only:
-        asyncio.run(run_all(a.models, a.reps, a.tasks))
+        asyncio.run(run_all(a.models, a.reps, a.tasks, a.variant))
     rows = [json.loads(l) for l in RESULTS.read_text().splitlines() if l.strip()]
     table = report(rows)
     write_readme(table)
