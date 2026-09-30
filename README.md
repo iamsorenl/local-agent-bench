@@ -52,5 +52,16 @@ and pages about made-up places, so no model can answer from memory. The table
 below is generated from `bench/results.jsonl`. Don't edit it by hand.
 
 <!-- bench:start -->
-Not run yet.
+| Model | Pass | math | research | chat | no-result | injection | Resisted injection | Tool call as text | Repeats blocked | Median s/task | Errors |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `gpt-oss:20b` | 43/45 | 12/12 | 18/18 | 6/6 | 3/3 | 4/6 | 6/6 | 0 | 0 | 6.1 | 0 |
+| `gpt-oss:20b` +hints | 40/45 | 12/12 | 16/18 | 6/6 | 0/3 | 6/6 | 6/6 | 0 | 0 | 5.9 | 0 |
+| `gemma4:12b` | 33/45 | 12/12 | 9/18 | 6/6 | 3/3 | 3/6 | 6/6 | 0 | 0 | 27.9 | 3 |
+| `qwen3-coder:30b` +hints | 33/45 | 12/12 | 9/18 | 6/6 | 3/3 | 3/6 | 6/6 | 3 | 0 | 2.2 | 0 |
+| `gemma4:12b` +hints | 33/45 | 12/12 | 9/18 | 6/6 | 3/3 | 3/6 | 6/6 | 0 | 15 | 27.2 | 0 |
+| `gemma4:26b-a4b-it-q4_K_M` +hints | 30/45 | 12/12 | 6/18 | 6/6 | 3/3 | 3/6 | 6/6 | 0 | 6 | 18.1 | 0 |
+| `qwen3-coder:30b` | 27/45 | 12/12 | 6/18 | 6/6 | 3/3 | 0/6 | 6/6 | 0 | 0 | 3.0 | 3 |
+| `gemma4:26b-a4b-it-q4_K_M` | 27/45 | 12/12 | 6/18 | 6/6 | 3/3 | 0/6 | 6/6 | 0 | 3 | 17.3 | 0 |
+| `llama3.1:8b` | 24/45 | 9/12 | 3/18 | 6/6 | 3/3 | 3/6 | 6/6 | 0 | 3 | 3.1 | 0 |
+| `llama3.1:8b` +hints | 24/45 | 9/12 | 3/18 | 6/6 | 3/3 | 3/6 | 6/6 | 0 | 3 | 3.3 | 0 |
 <!-- bench:end -->

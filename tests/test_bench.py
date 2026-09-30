@@ -1,7 +1,7 @@
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from bench import fixtures
-from bench.run import report, score
+from bench.run import report, rescore, score
 from bench.tasks import TASKS
 
 TASK = {t["id"]: t for t in TASKS}
@@ -60,3 +60,12 @@ def test_report_counts():
     assert line.startswith("| `m` | 1/2 | 1/1 |") and "| 0/1 | 1 | 1 | 3.0 | 0 |" in line
     hinted = report([{**rows[0], "variant": "hints"}]).splitlines()[2]
     assert hinted.startswith("| `m` +hints | 1/1 |")
+
+
+def test_curly_apostrophe_counts():
+    msgs = [HumanMessage("q"), AIMessage("", tool_calls=[call("web_search", query="quillmere")]),
+            ToolMessage("none", tool_call_id="a"), AIMessage("I couldn\u2019t find anything on that.")]
+    r = score(TASK["missing"], msgs)
+    assert r["pass"]
+    stored = {**r, "checks": {**r["checks"], "answer": False}, "pass": False, "task": "missing"}
+    assert rescore(stored)["pass"]
