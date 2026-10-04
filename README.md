@@ -1,5 +1,7 @@
 # local-agent-bench
 
+[![M8ven Score](https://m8ven.ai/badge/mcp/iamsorenl-local-agent-bench-1at7zp?v=418771b00c61495128ae99725e841786)](https://m8ven.ai/mcp/iamsorenl-local-agent-bench-1at7zp?s=readme)
+
 Can a model running on a laptop drive a tool-using agent? I built a small agent
 (web search, page reading, a calculator) that runs entirely on local models
 through Ollama, then ran 5 of those models through the same 15 tasks.
