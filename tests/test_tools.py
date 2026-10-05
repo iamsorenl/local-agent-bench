@@ -1,4 +1,6 @@
-from tools.server import PAGE_CHARS, calculator, clip, read_page
+import asyncio
+
+from tools.server import PAGE_CHARS, calculator, clip, mcp, read_page
 
 
 def test_calculator():
@@ -22,3 +24,10 @@ def test_clip_pages_through_long_text():
 
 def test_read_page_rejects_non_http():
     assert read_page("file:///etc/passwd") == "only http(s) urls are allowed"
+
+
+def test_every_tool_declares_all_four_hints():
+    hints = ("readOnlyHint", "destructiveHint", "idempotentHint", "openWorldHint")
+    for tool in asyncio.run(mcp.list_tools()):
+        assert tool.annotations, tool.name
+        assert all(isinstance(getattr(tool.annotations, h), bool) for h in hints), tool.name
