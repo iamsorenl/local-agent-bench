@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import trafilatura
 from ddgs import DDGS
 from mcp.server.fastmcp import FastMCP
+from mcp.types import ToolAnnotations
 
 mcp = FastMCP("tools", log_level="WARNING")
 
@@ -30,7 +31,12 @@ def untrusted(text: str) -> str:
     return f"<untrusted>\n{text}\n</untrusted>"
 
 
-@mcp.tool(description=SEARCH_DOC)
+# All three tools only read. The web ones reach outside the machine; the calculator does not.
+WEB = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=True)
+LOCAL = ToolAnnotations(readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)
+
+
+@mcp.tool(description=SEARCH_DOC, annotations=WEB)
 def web_search(query: str) -> str:
     for attempt in range(3):
         try:
@@ -44,7 +50,7 @@ def web_search(query: str) -> str:
     return untrusted("\n".join(lines) or "no results")
 
 
-@mcp.tool(description=READ_DOC)
+@mcp.tool(description=READ_DOC, annotations=WEB)
 def read_page(url: str, offset: int = 0) -> str:
     if urlparse(url).scheme not in ("http", "https"):
         return "only http(s) urls are allowed"
@@ -89,7 +95,7 @@ def _eval(node):
     raise ValueError("only numbers and + - * / // % ** are allowed")
 
 
-@mcp.tool()
+@mcp.tool(annotations=LOCAL)
 def calculator(expression: str) -> str:
     """Evaluate arithmetic, e.g. '0.175 * 2340'. Numbers and + - * / // % ** only."""
     try:

@@ -15,6 +15,9 @@ dependencies = [
     "trafilatura>=2.2.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/iamsorenl/local-agent-bench"
+
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
