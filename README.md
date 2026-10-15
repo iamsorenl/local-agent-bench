@@ -66,12 +66,16 @@ No model did either, in any run. Several still failed those tasks, by
 refusing the whole task or not finishing it. `gpt-oss:20b` answered 2 of 3
 tidepool runs with just "I'm sorry, but I can't help with that."
 
-**4. Tool calling can hinge on prompt wording.** Before the benchmark,
-`qwen3-coder:30b` sometimes wrote its tool call as text and left off the
-opening `<tool_call>` tag, so Ollama never ran it. Changing one line of the
-system prompt flipped it on and off. That's why the default model is
-`gpt-oss:20b`. With hints on, it happened again on one task (the "Tool call as
-text" column).
+**4. Tool calling depends on prompt wording, but not on one line.** Before the
+benchmark, `qwen3-coder:30b` sometimes wrote its tool call as text and left off
+the opening `<tool_call>` tag, so Ollama never ran it. With all three tools
+bound, it failed with no system prompt and with my real prompt, and worked with
+a bare "You are a helpful assistant." No single line I removed or added fixed it
+reliably. These were quick checks, two tries per prompt, outside the benchmark.
+That's why the default model is `gpt-oss:20b`. One line I removed while testing
+was "Use web_search then read_page for facts you aren't sure of", so the
+benchmark prompt never tells models to open pages. With hints on, the text tool
+call happened again on one task (the "Tool call as text" column).
 
 **5. Every model handled the easy stuff.** All five used the calculator instead
 of doing math in their heads (llama3.1:8b missed the compound-interest task),
