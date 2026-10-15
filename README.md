@@ -12,6 +12,9 @@ same step: after searching, they didn't open the page to read the answer.
 
 Everything here is free to run. There are no API keys and no paid services.
 
+- Write-up: [Which local Ollama models can drive a tool-using agent?](https://larsensoren.com/writing/local-agent-bench/)
+- Raw runs: [Hugging Face dataset](https://huggingface.co/datasets/iamsorenl/local-agent-bench) (all 450 runs and the 15 tasks)
+
 ## Results
 
 <!-- bench:start -->
