@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from bench import fixtures
@@ -5,6 +10,7 @@ from bench.run import score
 from examples.helpdesk import suite
 from tools.server import PAGE_CHARS
 
+ROOT = Path(__file__).resolve().parent.parent
 TASK = {t["id"]: t for t in suite.TASKS}
 
 
@@ -81,3 +87,19 @@ def test_missing_policy_answer():
             ToolMessage("page", tool_call_id="a")]
     assert score(TASK["dogs"], read + [AIMessage("The handbook doesn't mention dogs.")])["pass"]
     assert not score(TASK["dogs"], read + [AIMessage("Dogs are welcome on Fridays.")])["pass"]
+
+
+def served(code, **env):
+    full = {**os.environ, "BENCH_OFFLINE": "1", **env}
+    return subprocess.run([sys.executable, "-c", f"from tools.server import web_search, read_page; print({code})"],
+                          env=full, cwd=ROOT, capture_output=True, text=True, check=True).stdout
+
+
+def test_server_serves_suite_pages():
+    assert "intranet.example/refund-policy" in served("web_search('halyard refund')", BENCH_SUITE="helpdesk")
+    assert "70%" in served("read_page('https://intranet.example/refund-policy')", BENCH_SUITE="helpdesk")
+
+
+def test_server_default_fixtures_unchanged():
+    assert "zephyr-point-lighthouse" in served("web_search('zephyr point lighthouse')")
+    assert "could not read" in served("read_page('https://intranet.example/refund-policy')")
