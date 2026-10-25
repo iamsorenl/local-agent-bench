@@ -46,9 +46,9 @@ PAGES = {
 }
 
 
-def search(query):
+def search(query, table=SEARCH):
     q = query.lower()
-    for words, hits in SEARCH:
+    for words, hits in table:
         if all(w in q for w in words):
             return hits
     return []
