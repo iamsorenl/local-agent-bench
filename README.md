@@ -130,10 +130,18 @@ uv run pytest
 
 uv run python -m bench --models gpt-oss:20b --reps 1   # benchmark one model
 uv run python -m bench --report-only                   # rebuild the table from results
+uv run python -m bench --suite helpdesk --models gpt-oss:20b llama3.1:8b --reps 1   # the helpdesk example
 ```
 
 The agent prints tool calls to stderr as `-> tool(args)` and saves runs in
 `runs.sqlite`. It uses the live web; the benchmark uses the recorded fixtures.
+
+## Use it on your own problem
+
+[`examples/helpdesk`](examples/helpdesk) runs the same agent and scoring on a different
+question: can a local model run an internal-docs helpdesk for a team whose documents can't
+leave the building? It has 8 tasks, two models and one command, plus how to copy it for your
+own docs.
 
 ## How the agent works
 
