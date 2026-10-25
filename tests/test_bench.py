@@ -124,3 +124,16 @@ def test_no_break_spaces_count_as_spaces():
             ToolMessage("p", tool_call_id="a"), ToolMessage("10.0", tool_call_id="b"),
             AIMessage("8 months × 1.25 = **10 PTO days**")]
     assert score(pto, msgs)["checks"]["answer"]
+
+
+def test_suite_report_skips_rows_for_tasks_no_longer_in_the_suite(tmp_path, monkeypatch, capsys):
+    import json as js
+    import bench.run as run
+    d = tmp_path / "examples" / "helpdesk"
+    d.mkdir(parents=True)
+    (d / "README.md").write_text("# x\n")
+    (d / "results.jsonl").write_text(js.dumps({"task": "renamed-away", "model": "m", "cat": "lookup", "pass": True,
+                                               "checks": {"answer": True}, "answer": ""}) + "\n")
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    main(["--suite", "helpdesk", "--report-only"])
+    assert "`m`" not in capsys.readouterr().out

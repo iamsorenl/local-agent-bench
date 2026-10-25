@@ -180,7 +180,8 @@ def main(argv=None):
     if not a.report_only:
         asyncio.run(run_all(a.models, a.reps, a.tasks, a.variant, tasks, results, a.suite))
     lines = results.read_text().splitlines() if results.exists() else []
-    rows = [rescore(json.loads(l), tasks) for l in lines if l.strip()]
+    ids = {t["id"] for t in tasks}  # a copied suite's old rows may name tasks that no longer exist
+    rows = [rescore(r, tasks) for r in (json.loads(l) for l in lines if l.strip()) if r["task"] in ids]
     table = report(rows, cats)
     write_readme(table, readme)
     print(table)

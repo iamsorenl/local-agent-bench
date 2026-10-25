@@ -43,8 +43,8 @@ That regenerates the table below from `examples/helpdesk/results.jsonl`.
 ## What this means for the team
 
 I wouldn't pilot this on `llama3.1:8b`. It passed only the small-talk task and never got a
-fact out of a page. On `escalate` and `summary` it called `read_page`, then said it was
-"unable to access the webpage". On the math questions it skipped the docs and made numbers
+fact out of a page. On `escalate` and `summary` it called `read_page` without searching
+first, so it had no real link to open, then said it was "unable to access the webpage". On the math questions it skipped the docs and made numbers
 up: 80 PTO days, and a $146.35 refund worked out as compound interest.
 
 `gpt-oss:20b` is the one to try, with changes. It passed 5 of 8, and the two misses that
@@ -62,7 +62,7 @@ when they're indexed. Then rerun this suite.
 
 ## Use it on your own docs
 
-1. Copy this folder to `examples/<yours>/`.
+1. Copy this folder to `examples/<yours>/` and delete the copied `results.jsonl`.
 2. In `suite.py`, replace `PAGES` with a few of your real documents (or realistic stand-ins),
    `SEARCH` with the words people will search for, and `TASKS` with 8 to 10 questions people
    will really ask. Include one with no answer, and one where a doc tries to give the model

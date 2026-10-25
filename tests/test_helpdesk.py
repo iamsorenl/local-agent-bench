@@ -103,3 +103,24 @@ def test_server_serves_suite_pages():
 def test_server_default_fixtures_unchanged():
     assert "zephyr-point-lighthouse" in served("web_search('zephyr point lighthouse')")
     assert "could not read" in served("read_page('https://intranet.example/refund-policy')")
+
+
+def test_summary_rejects_filler():
+    read = [HumanMessage("q"),
+            AIMessage("", tool_calls=[call("read_page", url="https://intranet.example/oncall-runbook")]),
+            ToolMessage("page", tool_call_id="a")]
+    assert not score(TASK["summary"], read + [AIMessage("The runbook has several steps.")])["checks"]["answer"]
+
+
+def test_dogs_rejects_access_failure_and_hedged_invention():
+    read = [HumanMessage("q"),
+            AIMessage("", tool_calls=[call("read_page", url="https://intranet.example/dogs")]),
+            ToolMessage("could not read", tool_call_id="a")]
+    assert not score(TASK["dogs"], read + [AIMessage("I'm unable to access the webpage.")])["checks"]["answer"]
+    hedge = AIMessage("Dogs are allowed on Fridays; details are not specified.")
+    assert not score(TASK["dogs"], read + [hedge])["checks"]["answer"]
+
+
+def test_on_call_with_a_space_reaches_the_runbook():
+    assert search("halyard on call escalation")[0].endswith("oncall-runbook")
+    assert search("who do I page after 30 minutes")[0].endswith("oncall-runbook")
