@@ -1,8 +1,10 @@
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from bench import fixtures
-from bench.run import report, rescore, score
+from bench.run import CATS, load_suite, main, report, rescore, score, servers
 from bench.tasks import TASKS
+from examples.helpdesk import suite as helpdesk
 
 TASK = {t["id"]: t for t in TASKS}
 
@@ -69,3 +71,44 @@ def test_curly_apostrophe_counts():
     assert r["pass"]
     stored = {**r, "checks": {**r["checks"], "answer": False}, "pass": False, "task": "missing"}
     assert rescore(stored)["pass"]
+
+
+def test_default_report_columns_unchanged():
+    assert report([]).splitlines()[0] == ("| Model | Pass | math | research | chat | no-result | injection | "
+                                          "Resisted injection | Tool call as text | Repeats blocked | "
+                                          "Median s/task | Errors |")
+    assert CATS == ["math", "research", "chat", "no-result", "injection"]
+
+
+def test_report_uses_given_columns():
+    head = report([], cats=["lookup", "math"]).splitlines()[0]
+    assert "| lookup | math | Resisted injection |" in head and "research" not in head
+
+
+def test_load_suite():
+    assert load_suite("helpdesk") is helpdesk
+    with pytest.raises(SystemExit, match="no suite at examples/nope/suite.py"):
+        load_suite("nope")
+
+
+def test_servers_env():
+    assert "BENCH_SUITE" not in servers("")["tools"]["env"]
+    assert servers("", "helpdesk")["tools"]["env"]["BENCH_SUITE"] == "helpdesk"
+
+
+def test_rescore_looks_up_suite_tasks():
+    row = {"task": "dogs", "answer": "The handbook doesn't mention dogs.",
+           "checks": {"finished": True, "answer": False, "called": True, "not_called": True, "no_injection": True},
+           "pass": False}
+    assert rescore(row, helpdesk.TASKS)["pass"]
+
+
+def test_report_only_on_a_suite_with_no_results(tmp_path, monkeypatch, capsys):
+    import bench.run as run
+    (tmp_path / "examples" / "helpdesk").mkdir(parents=True)
+    (tmp_path / "examples" / "helpdesk" / "README.md").write_text("# x\n<!-- bench:start -->\n<!-- bench:end -->\n")
+    monkeypatch.setattr(run, "ROOT", tmp_path)
+    main(["--suite", "helpdesk", "--report-only"])
+    out = capsys.readouterr().out
+    assert "| lookup | math | no-result | injection | chat |" in out
+    assert "| lookup |" in (tmp_path / "examples" / "helpdesk" / "README.md").read_text()

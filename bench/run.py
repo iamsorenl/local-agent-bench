@@ -3,9 +3,11 @@
     uv run python -m bench                       # all models, 3 repeats
     uv run python -m bench --models gpt-oss:20b --reps 1
     uv run python -m bench --report-only         # rebuild the table from results.jsonl
+    uv run python -m bench --suite helpdesk --models gpt-oss:20b --reps 1   # run examples/helpdesk/suite.py
 """
 import argparse
 import asyncio
+import importlib
 import json
 import os
 import re
@@ -26,10 +28,21 @@ ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "bench" / "results.jsonl"
 README = ROOT / "README.md"
 TIMEOUT = 300
+CATS = ["math", "research", "chat", "no-result", "injection"]  # the main benchmark's columns, in table order
+EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
 
 
-def servers(variant):
+def load_suite(name):
+    """examples/<name>/suite.py, with TASKS, SEARCH and PAGES shaped like bench/tasks.py and bench/fixtures.py."""
+    if not (EXAMPLES / name / "suite.py").exists():
+        raise SystemExit(f"no suite at examples/{name}/suite.py")
+    return importlib.import_module(f"examples.{name}.suite")
+
+
+def servers(variant, suite=None):
     env = {**os.environ, "BENCH_OFFLINE": "1", "TOOL_HINTS": "1" if variant == "hints" else "0"}
+    if suite:
+        env["BENCH_SUITE"] = suite
     return {"tools": {**SERVERS["tools"], "cwd": str(ROOT), "env": env}}
 
 TEXT_CALL = re.compile(r"<function=|<tool_call>|</tool_call>")
@@ -45,9 +58,9 @@ def answer_ok(task, answer):
             and (not task.get("answer_any") or any(a in norm for a in task["answer_any"])))
 
 
-def rescore(row):
+def rescore(row, tasks=TASKS):
     """Re-apply answer checks to a stored row. Can only turn a fail into a pass (old rows store 300 chars)."""
-    task = next(t for t in TASKS if t["id"] == row["task"])
+    task = next(t for t in tasks if t["id"] == row["task"])
     row["checks"]["answer"] = row["checks"]["answer"] or answer_ok(task, row["answer"])
     row["pass"] = all(row["checks"].values())
     return row
@@ -79,13 +92,13 @@ def score(task, messages, error=None):
     }
 
 
-async def run_one(model_name, task, variant=""):
+async def run_one(model_name, task, variant="", suite=None):
     start = time.monotonic()
     messages, error = [], None
     try:
         messages = await asyncio.wait_for(
             ask(task["q"], ollama(model_name), thread=uuid.uuid4().hex, db=":memory:",
-                verbose=False, servers=servers(variant)), TIMEOUT)
+                verbose=False, servers=servers(variant, suite)), TIMEOUT)
     except TimeoutError:
         error = f"timeout after {TIMEOUT}s"
     except Exception as e:  # recursion limit, Ollama errors: a failed run, not a crashed benchmark
@@ -96,13 +109,13 @@ async def run_one(model_name, task, variant=""):
             "seconds": round(time.monotonic() - start, 2), **score(task, messages, error)}
 
 
-async def run_all(models, reps, task_ids, variant=""):
-    tasks = [t for t in TASKS if not task_ids or t["id"] in task_ids]
-    with RESULTS.open("a") as out:
+async def run_all(models, reps, task_ids, variant="", tasks=TASKS, results=RESULTS, suite=None):
+    tasks = [t for t in tasks if not task_ids or t["id"] in task_ids]
+    with results.open("a") as out:
         for model in models:
             for rep in range(reps):
                 for task in tasks:
-                    r = await run_one(model, task, variant)
+                    r = await run_one(model, task, variant, suite)
                     r["rep"] = rep
                     out.write(json.dumps(r) + "\n")
                     out.flush()
@@ -115,8 +128,7 @@ def pct(rows, key="pass"):
     return f"{sum(r[key] for r in rows)}/{len(rows)}" if rows else "-"
 
 
-def report(rows):
-    cats = ["math", "research", "chat", "no-result", "injection"]
+def report(rows, cats=CATS):
     by_model = defaultdict(list)
     for r in rows:
         by_model[f"`{r['model']}`" + (f" +{r['variant']}" if r.get("variant") else "")].append(r)
@@ -137,15 +149,15 @@ def report(rows):
     return "\n".join(lines)
 
 
-def write_readme(table):
+def write_readme(table, readme=README):
     start, end = "<!-- bench:start -->", "<!-- bench:end -->"
-    text = README.read_text()
+    text = readme.read_text()
     block = f"{start}\n{table}\n{end}"
     text = re.sub(f"{start}.*?{end}", lambda _: block, text, flags=re.S) if start in text else text + f"\n{block}\n"
-    README.write_text(text)
+    readme.write_text(text)
 
 
-def main():
+def main(argv=None):
     p = argparse.ArgumentParser(prog="python -m bench")
     p.add_argument("--models", nargs="+", default=MODELS)
     p.add_argument("--reps", type=int, default=3)
@@ -153,12 +165,20 @@ def main():
     p.add_argument("--report-only", action="store_true")
     p.add_argument("--fresh", action="store_true", help="delete results.jsonl first")
     p.add_argument("--variant", default="", choices=["", "hints"], help="hints = one extra sentence in tool descriptions")
-    a = p.parse_args()
+    p.add_argument("--suite", help="run examples/<name>/suite.py instead of the main benchmark")
+    a = p.parse_args(argv)
+    tasks, cats, results, readme = TASKS, CATS, RESULTS, README
+    if a.suite:
+        tasks = load_suite(a.suite).TASKS
+        cats = list(dict.fromkeys(t["cat"] for t in tasks))
+        results = ROOT / "examples" / a.suite / "results.jsonl"
+        readme = ROOT / "examples" / a.suite / "README.md"
     if a.fresh:
-        RESULTS.unlink(missing_ok=True)
+        results.unlink(missing_ok=True)
     if not a.report_only:
-        asyncio.run(run_all(a.models, a.reps, a.tasks, a.variant))
-    rows = [rescore(json.loads(l)) for l in RESULTS.read_text().splitlines() if l.strip()]
-    table = report(rows)
-    write_readme(table)
+        asyncio.run(run_all(a.models, a.reps, a.tasks, a.variant, tasks, results, a.suite))
+    lines = results.read_text().splitlines() if results.exists() else []
+    rows = [rescore(json.loads(l), tasks) for l in lines if l.strip()]
+    table = report(rows, cats)
+    write_readme(table, readme)
     print(table)
