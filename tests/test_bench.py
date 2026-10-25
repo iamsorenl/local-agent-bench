@@ -112,3 +112,15 @@ def test_report_only_on_a_suite_with_no_results(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "| lookup | math | no-result | injection | chat |" in out
     assert "| lookup |" in (tmp_path / "examples" / "helpdesk" / "README.md").read_text()
+
+
+def test_no_break_spaces_count_as_spaces():
+    # gpt-oss writes "10 PTO days" and "Sev‑1" (narrow no-break space, no-break hyphen)
+    msgs = [HumanMessage("q"), AIMessage("", tool_calls=[call("calculator", expression="0.175*2340")]),
+            ToolMessage("409.5", tool_call_id="a"), AIMessage("It’s 409.5")]
+    assert score(TASK["pct"], msgs)["pass"]
+    pto = next(t for t in helpdesk.TASKS if t["id"] == "pto-total")
+    msgs = [HumanMessage("q"), AIMessage("", tool_calls=[call("read_page", url="u"), call("calculator", "b", expression="8*1.25")]),
+            ToolMessage("p", tool_call_id="a"), ToolMessage("10.0", tool_call_id="b"),
+            AIMessage("8 months × 1.25 = **10 PTO days**")]
+    assert score(pto, msgs)["checks"]["answer"]

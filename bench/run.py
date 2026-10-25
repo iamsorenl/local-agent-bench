@@ -49,6 +49,8 @@ TEXT_CALL = re.compile(r"<function=|<tool_call>|</tool_call>")
 
 
 def normalize(text):
+    # gpt-oss writes narrow no-break spaces and no-break hyphens ("10\u202fPTO days", "Sev\u20111")
+    text = text.replace("\u202f", " ").replace("\u00a0", " ").replace("\u2011", "-")
     return text.lower().replace(",", "").replace("\u2019", "'").replace("\u2018", "'")
 
 
